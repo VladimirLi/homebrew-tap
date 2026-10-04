@@ -49,15 +49,17 @@ class Stillbreak < Formula
           fail "$1 is not a Stillbreak app ($BUNDLE_ID). Leaving it alone; move it away yourself if you want it replaced."
       }
 
-      # rename(2) via perl: a directory is never moved *into* an existing destination, and an occupied
-      # destination (non-empty directory, file, symlink) makes it fail instead of being replaced.
-      # (`mv` would nest the source inside an existing directory and still exit 0, so it is never used to place.)
+      # rename(2) via perl: a directory is never moved *into* an existing destination, and a destination that
+      # is a non-empty directory, a file or a symlink makes it fail instead of being replaced. An *empty*
+      # directory at the destination is replaced (rename(2) allows it; nothing is lost). `mv` would nest the
+      # source inside an existing directory and still exit 0, so it is never used to place.
       place() { perl -e 'rename($ARGV[0], $ARGV[1]) or do { print STDERR "$!\\n"; exit 1 }' "$1" "$2"; }
 
       move_to_trash() {
         mkdir -p "$TRASH"
         trashed="$TRASH/Stillbreak-$(date +%Y%m%d-%H%M%S)-$$.app"
-        # No-clobber: if anything is already at $trashed, the move fails and $1 stays exactly where it was.
+        # If a non-empty directory, file or symlink is already at $trashed, the move fails and $1 stays where
+        # it was. An empty directory there is simply replaced by the backup.
         place "$1" "$trashed" 2>/dev/null ||
           fail "could not move $1 to the Trash at $trashed (something is already there, or the Trash is on another volume). $1 was left untouched."
         # Re-check what was actually moved: the destination may have changed since it was validated.
@@ -135,8 +137,8 @@ class Stillbreak < Formula
 
       The copy is verified before anything is replaced. An existing /Applications/Stillbreak.app is
       moved to the Trash, never deleted, and a different app with that name is not replaced. If
-      something else appears there mid-install, the helper stops and tells you where the previous
-      copy is in the Trash.
+      something else (other than an empty folder) appears there mid-install, the helper stops and
+      tells you where the previous copy is in the Trash.
       Then open Stillbreak from /Applications. It lives in the menu bar and has no Dock icon.
 
       To upgrade, rebuild and copy again:
@@ -268,6 +270,7 @@ class Stillbreak < Formula
 
     # 4. Something appears at the Trash destination right before the move (a directory, then a file).
     #    The move must fail without nesting the app inside it, and the installed app must stay put.
+    #    (A non-empty directory is used: rename(2) does replace an empty one, covered in 5.)
     collisions = {
       "trashdir"  => "mkdir -p \"$4/inner\"",
       "trashfile" => "echo foreign > \"$4\"",
@@ -292,5 +295,27 @@ class Stillbreak < Formula
         assert_equal ["Stillbreak.app"], apps.children.map { |c| c.basename.to_s }
       end
     end
+
+    # 5. An *empty* directory appearing at the Trash name or at the final destination is replaced by
+    #    rename(2). That is the documented limit: nothing is lost and nothing is nested.
+    apps, trash = scenario.call("emptytrash")
+    system helper, "install"
+    into_trash = <<~SH
+      case "$4" in "$STILLBREAK_TRASH_DIR"/*) mkdir -p "$4";; esac
+      exec /usr/bin/perl "$@"
+    SH
+    shims = shim.call("perl", into_trash)
+    shell_output("PATH=#{shims}:$PATH #{helper} uninstall 2>&1")
+    refute_path_exists apps/"Stillbreak.app"
+    assert_equal 1, trash.children.count
+    assert_equal "com.vladimirli.Stillbreak", bundle_id.call(trash.children.first)
+    refute_path_exists trash.children.first/"Stillbreak.app"
+
+    apps, trash = scenario.call("emptydest")
+    shims = shim.call("perl", "mkdir -p \"$STILLBREAK_APPLICATIONS_DIR/Stillbreak.app\"\nexec /usr/bin/perl \"$@\"")
+    shell_output("PATH=#{shims}:$PATH #{helper} install 2>&1")
+    assert_equal "com.vladimirli.Stillbreak", bundle_id.call(apps/"Stillbreak.app")
+    refute_path_exists apps/"Stillbreak.app/Stillbreak.app"
+    assert_equal ["Stillbreak.app"], apps.children.map { |c| c.basename.to_s }
   end
 end
