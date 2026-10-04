@@ -27,13 +27,16 @@ stillbreak-app install
 The helper verifies the app's signature, copies it to a staging folder in `/Applications`, and only then swaps it in.
 An existing `/Applications/Stillbreak.app` is moved to the Trash (never deleted) before the swap. Both that move and the
 final placement use `rename(2)`, which refuses to replace a non-empty folder, a file or a symlink and never nests the app
-inside one: if another app appears at the destination during the install, the helper stops, leaves it alone and puts the
-previous Stillbreak back. If it cannot put it back, it prints the exact Trash path of the previous copy. It refuses to
-start if anything already at `/Applications/Stillbreak.app` is not Stillbreak (bundle id `com.vladimirli.Stillbreak`),
-including an empty folder, or if Stillbreak is running. The only case where an empty folder is replaced is one that
-appears at the destination (or at the generated Trash name) after those checks, during the install; nothing is lost. These checks are repeated just before the swap, but they are
-best-effort, not a lock: another process changing `/Applications` at that exact moment can still cause a safe failure
-rather than an install. Then open Stillbreak from `/Applications`.
+inside one. It refuses to start if anything already at `/Applications/Stillbreak.app` is not Stillbreak (bundle id
+`com.vladimirli.Stillbreak`), including an empty folder, or if Stillbreak is running. If something other than an empty
+folder appears at the destination during the install, the helper stops and leaves it alone. On an upgrade it then puts
+the previous Stillbreak back only if the destination is free; otherwise the previous copy stays in the Trash and the
+helper prints its exact path. On a fresh install, or if the collision is caught before the old app is moved, no Trash
+path is printed because nothing was moved. An empty folder is replaced whenever `rename(2)` meets one: at the
+destination, if it appears after the up-front checks (one already there is rejected), and at the generated Trash name,
+even if it was there before (the helper does not check that path). Nothing is lost in either case. The checks are
+repeated just before the swap, but they are best-effort, not a lock: another process changing `/Applications` at that
+exact moment can still cause a safe failure rather than an install. Then open Stillbreak from `/Applications`.
 
 Upgrade: `brew reinstall VladimirLi/tap/stillbreak`, then `stillbreak-app install` again.
 
