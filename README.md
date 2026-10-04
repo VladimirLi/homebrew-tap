@@ -25,9 +25,13 @@ stillbreak-app install
 ```
 
 The helper verifies the app's signature, copies it to a staging folder in `/Applications`, and only then swaps it in.
-An existing `/Applications/Stillbreak.app` is moved to the Trash (never deleted) and restored if the swap fails. If an
-app with that name is not Stillbreak (bundle id `com.vladimirli.Stillbreak`), or Stillbreak is running, it stops and
-changes nothing. Then open Stillbreak from `/Applications`.
+An existing `/Applications/Stillbreak.app` is moved to the Trash (never deleted) before the swap. The final placement
+never overwrites or nests inside something already at that path: if another app appears there during the install, the
+helper stops, leaves it alone and puts the previous Stillbreak back. If it cannot put it back, it prints the exact
+Trash path of the previous copy. It refuses to start if the existing app is not Stillbreak (bundle id
+`com.vladimirli.Stillbreak`) or Stillbreak is running. These checks are repeated just before the swap, but they are
+best-effort, not a lock: another process changing `/Applications` at that exact moment can still cause a safe failure
+rather than an install. Then open Stillbreak from `/Applications`.
 
 Upgrade: `brew reinstall VladimirLi/tap/stillbreak`, then `stillbreak-app install` again.
 
