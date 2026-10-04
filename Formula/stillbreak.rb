@@ -34,14 +34,14 @@ class Stillbreak < Formula
 
       To upgrade, rebuild and copy again:
 
-        brew reinstall --HEAD stillbreak
+        brew reinstall --HEAD VladimirLi/tap/stillbreak
         rm -rf /Applications/Stillbreak.app
         ditto #{opt_prefix}/Stillbreak.app /Applications/Stillbreak.app
 
       To uninstall, quit Stillbreak, turn off "Launch at login" in its Settings, then:
 
         rm -rf /Applications/Stillbreak.app
-        brew uninstall stillbreak
+        brew uninstall VladimirLi/tap/stillbreak
 
       Check System Settings > General > Login Items & Extensions afterwards and remove any
       leftover Stillbreak entry.
