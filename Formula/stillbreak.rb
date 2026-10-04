@@ -140,9 +140,10 @@ class Stillbreak < Formula
       The copy is verified before anything is replaced. An existing /Applications/Stillbreak.app is
       moved to the Trash, never deleted, and anything else already at that path (a different app, a
       file or any folder, even an empty one) is refused. If something other than an empty folder
-      appears there mid-install, the helper stops and leaves it alone. If a previous copy had already
-      been moved to the Trash and cannot be put back, the helper prints its Trash path; otherwise
-      nothing was moved and no path is printed. An empty folder that appears at that moment is replaced.
+      appears there mid-install, the helper stops and leaves it alone. When a failed install had
+      already moved the previous copy to the Trash, the helper puts it back if the destination is
+      free; if it cannot, it stays in the Trash and the helper prints its path. A successful upgrade
+      also prints the previous copy's Trash path. An empty folder that appears at that moment is replaced.
       Then open Stillbreak from /Applications. It lives in the menu bar and has no Dock icon.
 
       To upgrade, rebuild and copy again:
