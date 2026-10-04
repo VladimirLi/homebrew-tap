@@ -4,7 +4,6 @@ class Stillbreak < Formula
   license "MIT"
   head "https://github.com/VladimirLi/Stillbreak.git", branch: "main"
 
-  depends_on :macos
   depends_on macos: :sonoma
 
   def install
