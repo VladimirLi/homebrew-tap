@@ -34,7 +34,7 @@ class Stillbreak < Formula
 
       To upgrade, rebuild and copy again:
 
-        brew reinstall --HEAD VladimirLi/tap/stillbreak
+        brew reinstall VladimirLi/tap/stillbreak
         rm -rf /Applications/Stillbreak.app
         ditto #{opt_prefix}/Stillbreak.app /Applications/Stillbreak.app
 
