@@ -31,8 +31,9 @@ inside one. It refuses to start if anything already at `/Applications/Stillbreak
 `com.vladimirli.Stillbreak`), including an empty folder, or if Stillbreak is running. If something other than an empty
 folder appears at the destination during the install, the helper stops and leaves it alone. On an upgrade it then puts
 the previous Stillbreak back only if the destination is free; otherwise the previous copy stays in the Trash and the
-helper prints its exact path. On a fresh install, or if the collision is caught before the old app is moved, no Trash
-path is printed because nothing was moved. A successful upgrade also prints the previous copy's Trash path. An empty folder is replaced whenever `rename(2)` meets one: at the
+helper prints its exact path. On a fresh install, or if a collision at the app destination is caught before the old app is moved, no previous-copy
+path is printed because nothing was moved. If the move to the Trash itself fails, the old app stays in `/Applications`;
+the error names the Trash path it tried, but nothing was placed there. A successful upgrade also prints the previous copy's Trash path. An empty folder is replaced whenever `rename(2)` meets one: at the
 destination, if it appears after the up-front checks (one already there is rejected), and at the generated Trash name,
 even if it was there before (the helper does not check that path). Nothing is lost in either case. The checks are
 repeated just before the swap, but they are best-effort, not a lock: another process changing `/Applications` at that
