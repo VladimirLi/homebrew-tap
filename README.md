@@ -25,7 +25,8 @@ stillbreak-app install
 ```
 
 The helper verifies the app's signature, copies it to a staging folder in `/Applications`, and only then swaps it in.
-An existing `/Applications/Stillbreak.app` is moved to the Trash (never deleted) before the swap. The final placement
+An existing `/Applications/Stillbreak.app` is moved to the Trash (never deleted) before the swap; if something already
+has the Trash name, the move fails and the app stays where it was. The final placement
 never overwrites or nests inside something already at that path: if another app appears there during the install, the
 helper stops, leaves it alone and puts the previous Stillbreak back. If it cannot put it back, it prints the exact
 Trash path of the previous copy. It refuses to start if the existing app is not Stillbreak (bundle id

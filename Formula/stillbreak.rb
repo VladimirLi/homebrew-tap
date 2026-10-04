@@ -51,14 +51,15 @@ class Stillbreak < Formula
 
       # rename(2) via perl: a directory is never moved *into* an existing destination, and an occupied
       # destination (non-empty directory, file, symlink) makes it fail instead of being replaced.
-      # (`mv` would nest the source inside an existing directory and still exit 0.)
+      # (`mv` would nest the source inside an existing directory and still exit 0, so it is never used to place.)
       place() { perl -e 'rename($ARGV[0], $ARGV[1]) or do { print STDERR "$!\\n"; exit 1 }' "$1" "$2"; }
 
       move_to_trash() {
         mkdir -p "$TRASH"
         trashed="$TRASH/Stillbreak-$(date +%Y%m%d-%H%M%S)-$$.app"
-        [ ! -e "$trashed" ] || fail "$trashed already exists."
-        mv "$1" "$trashed"
+        # No-clobber: if anything is already at $trashed, the move fails and $1 stays exactly where it was.
+        place "$1" "$trashed" 2>/dev/null ||
+          fail "could not move $1 to the Trash at $trashed (something is already there, or the Trash is on another volume). $1 was left untouched."
         # Re-check what was actually moved: the destination may have changed since it was validated.
         if [ "$(bundle_id "$trashed")" != "$BUNDLE_ID" ]; then
           if place "$trashed" "$1" 2>/dev/null; then
@@ -187,8 +188,9 @@ class Stillbreak < Formula
     assert_equal 2, trash.children.count
 
     # Collisions: the destination changes after validation. Shims stand in for the other process.
+    shim_count = 0
     shim = lambda do |name, body|
-      dir = testpath/"shims-#{name}-#{body.hash.abs}"
+      dir = testpath/"shims-#{shim_count += 1}"
       dir.mkpath
       (dir/name).write("#!/bin/sh\n#{body}")
       chmod 0755, dir/name
@@ -232,11 +234,11 @@ class Stillbreak < Formula
     apps, trash = scenario.call("upgrade")
     system helper, "install"
     after_trash = <<~SH
-      /bin/mv "$@" || exit 1
-      case "$2" in "$STILLBREAK_TRASH_DIR"/*)
+      /usr/bin/perl "$@" || exit 1
+      case "$4" in "$STILLBREAK_TRASH_DIR"/*)
       #{occupy};; esac
     SH
-    shims = shim.call("mv", after_trash)
+    shims = shim.call("perl", after_trash)
     out = shell_output("PATH=#{shims}:$PATH #{helper} install 2>&1", 1)
     assert_match "could not be put back", out
     assert_match trash.to_s, out
@@ -250,18 +252,45 @@ class Stillbreak < Formula
     apps, trash = scenario.call("swap")
     system helper, "install"
     swap = <<~SH
-      case "$1" in "$STILLBREAK_APPLICATIONS_DIR"/Stillbreak.app)
-        /bin/mv "$1" "$STILLBREAK_TRASH_DIR.side"
-        mkdir -p "$1/Contents"
-        plutil -create xml1 "$1/Contents/Info.plist"
-        plutil -insert CFBundleIdentifier -string com.example.Other "$1/Contents/Info.plist";;
+      case "$3" in "$STILLBREAK_APPLICATIONS_DIR"/Stillbreak.app)
+        /bin/mv "$3" "$STILLBREAK_TRASH_DIR.side"
+        mkdir -p "$3/Contents"
+        plutil -create xml1 "$3/Contents/Info.plist"
+        plutil -insert CFBundleIdentifier -string com.example.Other "$3/Contents/Info.plist";;
       esac
-      exec /bin/mv "$@"
+      exec /usr/bin/perl "$@"
     SH
-    shims = shim.call("mv", swap)
+    shims = shim.call("perl", swap)
     out = shell_output("PATH=#{shims}:$PATH #{helper} install 2>&1", 1)
     assert_match "changed while it was being checked", out
     assert_equal "com.example.Other", bundle_id.call(apps/"Stillbreak.app")
     assert_empty trash.children
+
+    # 4. Something appears at the Trash destination right before the move (a directory, then a file).
+    #    The move must fail without nesting the app inside it, and the installed app must stay put.
+    collisions = {
+      "trashdir"  => "mkdir -p \"$4/inner\"",
+      "trashfile" => "echo foreign > \"$4\"",
+    }
+    actions = %w[install uninstall]
+    collisions.each do |label, create|
+      actions.each do |action|
+        apps, trash = scenario.call("#{label}-#{action}")
+        system helper, "install"
+        collide = <<~SH
+          case "$4" in "$STILLBREAK_TRASH_DIR"/*) #{create};; esac
+          exec /usr/bin/perl "$@"
+        SH
+        shims = shim.call("perl", collide)
+        out = shell_output("PATH=#{shims}:$PATH #{helper} #{action} 2>&1", 1)
+        assert_match "could not move", out
+        assert_equal "com.vladimirli.Stillbreak", bundle_id.call(apps/"Stillbreak.app")
+        assert_equal 1, trash.children.count
+        collided = trash.children.first
+        refute_path_exists collided/"Stillbreak.app"
+        refute_path_exists collided/"inner/Stillbreak.app"
+        assert_equal ["Stillbreak.app"], apps.children.map { |c| c.basename.to_s }
+      end
+    end
   end
 end
